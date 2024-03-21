@@ -3,6 +3,9 @@
 #include <WiFiClientSecure.h>
 #include <Arduino.h>
 #include <config.h>
+// #include <avdweb_VirtualDelay.h>
+// #include <ToneSfx.h>
+// #include <sounds.h>
 #include <SPI.h>
 #include <MFRC522.h>
 #include <rootCer.h>
@@ -224,21 +227,7 @@ void ledBlinkTick() {
 	}
 }
 
-void setup() {
-	Serial.println("== KOLONIAL LOCK ==");
-
-	Serial.begin(9600);   // Initialize serial communications with the PC
-	delay(1000);
-	//Serial.setDebugOutput(true);
-
-	ledcSetup(LEDC_CHANNEL_0, LEDC_BASE_FREQ, LEDC_TIMER_8_BIT);
-
-	pinMode(LED_RED_PIN, OUTPUT);
-	pinMode(LED_GREEN_PIN, OUTPUT);
-	pinMode(LED_BLUE_PIN, OUTPUT);
-	pinMode(LOCK_PIN, OUTPUT);
-	pinMode(BEEPER_PIN, OUTPUT);
-
+void connectToWifi() {
 	// WPA2 Enterprise connect
 	WiFi.disconnect(true);  // Ensure WiFi is disconnected and start fresh
   	WiFi.mode(WIFI_MODE_STA);
@@ -272,12 +261,35 @@ void setup() {
 	client.setCACert(rootCACertificate);
 
 	delay(1000);
-
 	allLedsOff();
+}
+
+void setup() {
+	Serial.begin(9600);   // Initialize serial communications with the PC
+	delay(1000);
+
+	//Serial.setDebugOutput(true);
+
+	Serial.println("== KOLONIAL LOCK ==");
+
+	ledcSetup(LEDC_CHANNEL_0, LEDC_BASE_FREQ, LEDC_TIMER_8_BIT);
+
+	pinMode(LED_RED_PIN, OUTPUT);
+	pinMode(LED_GREEN_PIN, OUTPUT);
+	pinMode(LED_BLUE_PIN, OUTPUT);
+	pinMode(LOCK_PIN, OUTPUT);
+	pinMode(BEEPER_PIN, OUTPUT);
+
+	connectToWifi();
+
 	playStartupMelody();
 }
 
 void loop() {
+	if (WiFi.status() != WL_CONNECTED) {
+		connectToWifi();
+	}
+
 	// https://community.particle.io/t/getting-the-rfid-rc522-to-work-solved/3571/282
 	// Initialize RFID reader
     initRC522();

@@ -242,10 +242,23 @@ void connectToWifi() {
 	// Serial.println("Connecting to WiFi");
 
 	while(WiFi.status() != WL_CONNECTED) {
+		// WL_IDLE_STATUS      = 0,
+		// WL_NO_SSID_AVAIL    = 1,
+		// WL_SCAN_COMPLETED   = 2,
+		// WL_CONNECTED        = 3,
+		// WL_CONNECT_FAILED   = 4,
+		// WL_CONNECTION_LOST  = 5,
+		// WL_DISCONNECTED     = 6
 		ledVioletOn();
-		delay(250);
+		delay(350);
 		allLedsOff();
-		delay(250);
+		delay(350);
+		for (size_t i = 0; i < WiFi.status(); i++) {
+			ledCyanOn();
+			delay(200);
+			allLedsOff();
+			delay(200);
+		}
 		Serial.println(WiFi.status());
 		Serial.print(".");
 	}

@@ -31,11 +31,11 @@ uint32_t mfrcLastMillis = 0;
 // const char* ssid = "ms-home";
 // const char* password = "";
 
+String adminTokenIds[3] = {"04131e4fea7480", "044c1016196c80", "045eb406496c80"}; // Admin Tokens: Dejf, Jarda, Hirek
+
 const char* ssid = "szn-Devices"; // Your network SSID (name)
 const char* username = "1b5124"; // Your WPA2 Enterprise username
 const char* password = "Jh40LPpB"; // Your WPA2 Enterprise password
-
-uint8_t target_esp_mac[6] = {0x5c, 0xcf, 0x7f, 0x81, 0x08, 0x93};
 
 String serverPath = "https://milestorm.net/kolonial/php/openDoor.php?cardId=";
 
@@ -48,27 +48,36 @@ void dump_byte_array(byte *buffer, byte bufferSize) {
 }
 
 String dumpByteArraToString(byte *buffer, byte bufferSize) {
-    String output;
-    for (byte i = 0; i < bufferSize; i++) {
-        if (buffer[i] < 0x10) {
-            output += "0";
-        }
-        output += String(buffer[i], HEX);
-    }
-    return output;
+	String output;
+	for (byte i = 0; i < bufferSize; i++) {
+		if (buffer[i] < 0x10) {
+			output += "0";
+		}
+		output += String(buffer[i], HEX);
+	}
+	return output;
+}
+
+bool isAdminToken(const String& tokenId) {
+	for (int i = 0; i < 3; i++) {
+		if (tokenId == adminTokenIds[i]) {
+			return true; // Token ID is found in the array
+		}
+	}
+	return false; // Token ID is not found in the array
 }
 
 void initRC522() {
-    SPI.begin(); // Init SPI bus
-    // SPI.setClockDivider(SPI_CLOCK_DIV16);
-    mfrc522.PCD_Init(); // Init MFRC522
-    delay(50);
-    // digitalWrite(LED_RED_PIN, LOW);
+	SPI.begin(); // Init SPI bus
+	// SPI.setClockDivider(SPI_CLOCK_DIV16);
+	mfrc522.PCD_Init(); // Init MFRC522
+	delay(50);
+	// digitalWrite(LED_RED_PIN, LOW);
 }
 
 void killRC522() {
-    digitalWrite(RST_PIN, LOW);
-    // digitalWrite(LED_RED_PIN, HIGH);
+	digitalWrite(RST_PIN, LOW);
+	// digitalWrite(LED_RED_PIN, HIGH);
 }
 
 void allLedsOff() {
@@ -155,6 +164,17 @@ void playTimeoutMelody() {
 	noTone(BEEPER_PIN);
 }
 
+void openTheDoor() {
+	ledGreenOn();
+	playOpenMelody();
+	delay(200);
+
+	// opens the lock for a short time
+	digitalWrite(LOCK_PIN, HIGH);
+	delay(3000);
+	digitalWrite(LOCK_PIN, LOW);
+}
+
 void processRfidCard() {
 	// Show some details of the PICC (that is: the tag/card)
 	Serial.print(F("Card UID:"));
@@ -163,45 +183,45 @@ void processRfidCard() {
 
 	ledBlueOn();
 
-    String serverPathWithParam = serverPath + dumpByteArraToString(mfrc522.uid.uidByte, mfrc522.uid.size);
+	String scannedTokenId = dumpByteArraToString(mfrc522.uid.uidByte, mfrc522.uid.size);
 
-	HTTPClient https;
+	if (isAdminToken(scannedTokenId)) {
+		Serial.println("Token is an admin token.");
+		openTheDoor();
+	} else {
+		String serverPathWithParam = serverPath + scannedTokenId;
 
-	if (https.begin(client, serverPathWithParam.c_str())) { // Specify the URL
-        int httpCode = https.GET(); // Make the request
+		HTTPClient https;
 
-        if (httpCode > 0) { // Check for the returning code
-            String payload = https.getString();
-            Serial.println(httpCode);
-            Serial.println(payload);
+		if (https.begin(client, serverPathWithParam.c_str())) { // Specify the URL
+			int httpCode = https.GET(); // Make the request
 
-			if (httpCode == 200) {
-				if (payload == "AccesGranted") {
-					ledGreenOn();
-					playOpenMelody();
-					delay(200);
+			if (httpCode > 0) { // Check for the returning code
+				String payload = https.getString();
+				Serial.println(httpCode);
+				Serial.println(payload);
 
-					// opens the lock for a short time
-					digitalWrite(LOCK_PIN, HIGH);
-					delay(3000);
-					digitalWrite(LOCK_PIN, LOW);
+				if (httpCode == 200) {
+					if (payload == "AccesGranted") {
+						openTheDoor();
+					} else {
+						ledRedOn();
+						playErrorMelody();
+					}
 				} else {
 					ledRedOn();
 					playErrorMelody();
 				}
 			} else {
+				Serial.println("Error on HTTP request");
+				Serial.println(httpCode);
 				ledRedOn();
-				playErrorMelody();
+				playTimeoutMelody();
 			}
-        } else {
-            Serial.println("Error on HTTP request");
-			Serial.println(httpCode);
-			ledRedOn();
-			playTimeoutMelody();
-        }
 
-        https.end(); // Free the resources
-    }
+			https.end(); // Free the resources
+		}
+	}
 
 	allLedsOff();
 
@@ -261,6 +281,9 @@ void connectToWifi() {
 		}
 		Serial.println(WiFi.status());
 		Serial.print(".");
+
+		// TODO
+		// kdyz se to zasekne na nejakym statusu.. treba dlouho na 6ce, tak pouzit ESP.restart() k restartovani ESPcka...
 	}
 	ledGreenOn();
 	Serial.println("");
@@ -268,9 +291,9 @@ void connectToWifi() {
 	Serial.println(WiFi.localIP());
 
 	// For HTTPS: if you don't want to use a certificate, you can bypass verification (not secure):
-    // client.setInsecure(); // Bypass certificate verification - only use for testing or trusted environments
+	// client.setInsecure(); // Bypass certificate verification - only use for testing or trusted environments
 
-    // Optionally, you can set the certificate for the server you're connecting to for secure connections:
+	// Optionally, you can set the certificate for the server you're connecting to for secure connections:
 	client.setCACert(rootCACertificate);
 
 	delay(1000);
@@ -305,27 +328,27 @@ void loop() {
 
 	// https://community.particle.io/t/getting-the-rfid-rc522-to-work-solved/3571/282
 	// Initialize RFID reader
-    initRC522();
+	initRC522();
 
-    // Reset last ms timer
-    mfrcLastMillis = millis();
+	// Reset last ms timer
+	mfrcLastMillis = millis();
 
 	// Wait up to N ms for card reading
-    while (millis() - mfrcLastMillis < 5000) {
-        // Look for a new NFC card to be present
-        if (!mfrc522.PICC_IsNewCardPresent()) {
-            continue;
-        }
-        // Attempt to read the card serial number (uid)
-        if (!mfrc522.PICC_ReadCardSerial()) {
-            continue;
-        }
+	while (millis() - mfrcLastMillis < 5000) {
+		// Look for a new NFC card to be present
+		if (!mfrc522.PICC_IsNewCardPresent()) {
+			continue;
+		}
+		// Attempt to read the card serial number (uid)
+		if (!mfrc522.PICC_ReadCardSerial()) {
+			continue;
+		}
 
 		processRfidCard();
-        break;
-    }
+		break;
+	}
 
-    killRC522();
+	killRC522();
 
 	// ledBlueOn();
 	delay(50);

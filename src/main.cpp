@@ -34,8 +34,8 @@ uint32_t mfrcLastMillis = 0;
 String adminTokenIds[3] = {"04131e4fea7480", "044c1016196c80", "045eb406496c80"}; // Admin Tokens: Dejf, Jarda, Hirek
 
 const char* ssid = "szn-Devices"; // Your network SSID (name)
-const char* username = "1b5124"; // Your WPA2 Enterprise username
-const char* password = "Jh40LPpB"; // Your WPA2 Enterprise password
+const char* username = "3b4719"; // Your WPA2 Enterprise username
+const char* password = "KjQuKiQa"; // Your WPA2 Enterprise password
 
 String serverPath = "https://milestorm.net/kolonial/php/openDoor.php?cardId=";
 
